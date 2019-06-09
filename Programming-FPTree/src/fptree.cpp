@@ -278,12 +278,17 @@ bool InnerNode::update(const Key& k, const Value& v) {
 // find the target value with the search key, return MAX_VALUE if it fails.
 Value InnerNode::find(const Key& k) {
     // TODO
-    return MAX_VALUE;
+    if(nKeys == 0&& nChild == 0) 
+        return MAX_VALUE;
+    int index = findIndex(k);
+    return childrens[index]->find(k);
 }
 
 // get the children node of this InnerNode
 Node* InnerNode::getChild(const int& idx) {
     // TODO
+    if(idx < nChild)    return childrens[idx];
+
     return NULL;
 }
 
@@ -506,6 +511,14 @@ bool LeafNode::update(const Key& k, const Value& v) {
 // if the entry can not be found, return the max Value
 Value LeafNode::find(const Key& k) {
     // TODO
+    int tmp = keyHash(k);
+    Byte* cursor = fingerprints;
+    for(int i = 0;i < degree*2;i++) {
+        if(getBit(i) == 1 && (fingerprints[i] == tmp))  {
+            if(getKey(i) == k)  return getValue(i);
+        }
+        cursor++;
+    }
     return MAX_VALUE;
 }
 
@@ -592,8 +605,20 @@ Value FPTree::find(Key k) {
 
 // call the InnerNode and LeafNode print func to print the whole tree
 // TIPS: use Queue
+#include<queue>
 void FPTree::printTree() {
     // TODO
+    queue<Node*> q;
+    q.push(root);
+    while(!q.empty()){
+        Node* tmp = q.front();
+        if(!tmp->isLeaf){
+            for(int i=0;i<((InnerNode*)(tmp))->nChild;++i) 
+                q.push(((InnerNode*)(tmp))->getChild(i));
+        } 
+        tmp->printNode();
+        q.pop();
+    }
 }
 
 // bulkLoading the leaf files and reload the tree
@@ -602,5 +627,20 @@ void FPTree::printTree() {
 // need to call the PALlocator
 bool FPTree::bulkLoading() {
     // TODO
-    return false;
+        PAllocator* PA = PAllocator::getAllocator();
+    PPointer startPointer=PA->getStartPointer();
+    if(startPointer.fileId==0) return false;
+    LeafNode* startLeaf = new LeafNode(startPointer,this);
+    //travesal list
+    KeyNode bulkLeaf;
+    for(auto leafnode=startLeaf;leafnode!=NULL;leafnode=leafnode->next){
+        bulkLeaf.node=leafnode;
+        Key min=leafnode->getKey(0);
+        for(int i=1;i<leafnode->n;++i){
+            if(leafnode->getKey(i)<min&&leafnode->getBit(i)) min=leafnode->getKey(i);
+        }
+        bulkLeaf.key=min;
+        root->insertLeaf(bulkLeaf);
+    }
+    return true;
 }
