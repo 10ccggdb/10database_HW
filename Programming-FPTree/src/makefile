@@ -1,50 +1,80 @@
-CXX = g++
+CXX := g++
+CC := gcc
+HEADER_DIR := ../include
 
-HEADER_DIR = ../include
+FPTREE_HEADER_DIR := $(HEADER_DIR)/fptree
+BIN_DIR := bin
+BUILD_DIR := build
 
-FPTREE_HEADER_DIR = $(HEADER_DIR)/fptree
+CXXFLAGS := -g -O2 -std=c++11
+CFLAGS := -fPIC -std=c99 -O2 -msse4.2 -mpclmul -march=native -funroll-loops -Wstrict-overflow -Wstrict-aliasing -Wall -Wextra -pedantic -Wshadow
+LEVELDB := -lleveldb
+LPTHREAD := -lpthread
+PMEM := -lpmem
 
-CXXFLAGS = -std=c++11
+MAIN := main.o
+YCSB := ycsb.o
+LYCSB := lycsb.o
+FPTREE := fptree.o
+UTILITY := utility.o
+PALLOCATOR := pallocator.o
+CLHASH := clhash.o
 
-CFLAGS = -fPIC -std=c99 -O3 -msse4.2 -mpclmul -march=native -funroll-loops -Wstrict-overflow -Wstrict-aliasing -Wall -Wextra -pedantic -Wshadow
-
-MAIN = ./bin/main
-
-YCSB = ./bin/ycsb
-
-LYCSB = ./bin/lycsb
-
-BIN = bin
-
-FPTREE = fptree.o
-
-UTILITY = utility.o
-
-PALLOCATOR = pallocator.o
-
-CLHASH = clhash.o
-
-ALL := $(LYCSB) $(YCSB) $(MAIN) $(FPTREE) $(UTILITY) $(PALLOCATOR) $(CLHASH)
+CREATE := $(CREATE_FILE)
+ALL := $(BIN_DIR)/main
+TEST1 := $(BIN_DIR)/lycsb
+TEST2 := $(BIN_DIR)/ycsb
 
 #============================TODO: all below============================
-$(MAIN) :
+$(BIN_DIR)/main: $(BUILD_DIR)/$(MAIN) $(BUILD_DIR)/$(FPTREE) $(BUILD_DIR)/$(UTILITY) $(BUILD_DIR)/$(PALLOCATOR) $(BUILD_DIR)/$(CLHASH)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) $^ -o $@ $(PMEM)
 
-$(FPTREE) : 
+$(BIN_DIR)/lycsb: $(BUILD_DIR)/$(LYCSB)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) $< -o $@ $(LEVELDB) $(LPTHREAD)
 
-$(UTILITY) :
+$(BIN_DIR)/ycsb: $(BUILD_DIR)/$(YCSB) $(BUILD_DIR)/$(FPTREE) $(BUILD_DIR)/$(UTILITY) $(BUILD_DIR)/$(PALLOCATOR) $(BUILD_DIR)/$(CLHASH)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) $^ -o $@ $(LEVELDB) $(LPTHREAD) $(PMEM)
 
-$(PALLOCATOR) : 
+$(BUILD_DIR)/$(LYCSB): lycsb.cpp
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) -c -o $@ $< $(LEVELDB) $(LPTHREAD)
 
-$(CLHASH) : clhash.c $(HEADER_DIR)/utility/clhash.h
-	$(CC) $(CFLAGS) -c clhash.c -I $(HEADER_DIR) -g -o $@
+$(BUILD_DIR)/$(YCSB): ycsb.cpp
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) -c -o $@ $< $(LEVELDB) $(LPTHREAD)
 
-$(BIN):
-	mkdir -p bin
+$(BUILD_DIR)/$(MAIN): main.cpp
+	@mkdir -p $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) -c -o $@ $<
 
-all : $(ALL)
+$(BUILD_DIR)/$(FPTREE): fptree.cpp
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) -c -o $@ $< $(PMEM)
+
+$(BUILD_DIR)/$(UTILITY): utility.cpp
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) -c -o $@ $<
+
+$(BUILD_DIR)/$(PALLOCATOR): p_allocator.cpp
+	$(CXX) $(CXXFLAGS) -I $(HEADER_DIR) -c -o $@ $< $(PMEM)
+
+$(BUILD_DIR)/$(CLHASH): clhash.c
+	$(CC) $(CFLAGS) -I $(HEADER_DIR) -c clhash.c -o $@
+
+$(CREATE_FILE):
+	echo "123"
+	mkdir -p po
+
+all : $(CREATE)
+
+test1: $(TEST1)
+
+test2: $(TEST2)
 
 clean :
-	rm -rf *.o ./bin/* ../data/*
+	@rm -rf $(BUILD_DIR)
+	@rm -rf $(BIN_DIR)
 
 cleand : 
 	rm -rf ../data/*
